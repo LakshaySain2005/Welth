@@ -6,14 +6,15 @@ import { notFound } from "next/navigation";
 import { AccountChart } from "../_components/account-chart";
 
 export default async function AccountPage({ params }) {
-  const accountData = await getAccountWithTransactions(params.id);
+  const { id } = await params;
+  const accountData = await getAccountWithTransactions(id);
 
   if (!accountData) {
     notFound();
   }
 
   const { transactions, ...account } = accountData;
-
+  
   return (
     <div className="space-y-8 px-5">
       <div className="flex gap-4 items-end justify-between">

@@ -11,7 +11,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 const serializeAmount = (obj) => ({
   ...obj,
-  amount: obj.amount.toNumber(),
+  amount: obj.amount?.toNumber?.() ?? obj.amount,
 });
 
 // Create Transaction
@@ -54,7 +54,7 @@ export async function createTransaction(data) {
       throw new Error("User not found");
     }
 
-    const account = await db.account.findUnique({
+    const account = await db.account.findFirst({
       where: {
         id: data.accountId,
         userId: user.id,
@@ -109,7 +109,7 @@ export async function getTransaction(id) {
 
   if (!user) throw new Error("User not found");
 
-  const transaction = await db.transaction.findUnique({
+  const transaction = await db.transaction.findFirst({
     where: {
       id,
       userId: user.id,
@@ -133,7 +133,7 @@ export async function updateTransaction(id, data) {
     if (!user) throw new Error("User not found");
 
     // Get original transaction to calculate balance change
-    const originalTransaction = await db.transaction.findUnique({
+    const originalTransaction = await db.transaction.findFirst({
       where: {
         id,
         userId: user.id,
@@ -145,7 +145,13 @@ export async function updateTransaction(id, data) {
 
     if (!originalTransaction) throw new Error("Transaction not found");
 
-    // Calculate balance changes
+    const targetAccount = await db.account.findFirst({
+      where: { id: data.accountId, userId: user.id },
+    });
+    if (!targetAccount) throw new Error("Account not found");
+
+    // Calculate balance changes. Moving a transaction between accounts
+    // reverses it on the original account and applies it on the new one.
     const oldBalanceChange =
       originalTransaction.type === "EXPENSE"
         ? -originalTransaction.amount.toNumber()
@@ -154,15 +160,10 @@ export async function updateTransaction(id, data) {
     const newBalanceChange =
       data.type === "EXPENSE" ? -data.amount : data.amount;
 
-    const netBalanceChange = newBalanceChange - oldBalanceChange;
-
     // Update transaction and account balance in a transaction
     const transaction = await db.$transaction(async (tx) => {
       const updated = await tx.transaction.update({
-        where: {
-          id,
-          userId: user.id,
-        },
+        where: { id },
         data: {
           ...data,
           nextRecurringDate:
@@ -172,15 +173,21 @@ export async function updateTransaction(id, data) {
         },
       });
 
-      // Update account balance
-      await tx.account.update({
-        where: { id: data.accountId },
-        data: {
-          balance: {
-            increment: netBalanceChange,
-          },
-        },
-      });
+      if (originalTransaction.accountId === data.accountId) {
+        await tx.account.update({
+          where: { id: data.accountId },
+          data: { balance: { increment: newBalanceChange - oldBalanceChange } },
+        });
+      } else {
+        await tx.account.update({
+          where: { id: originalTransaction.accountId },
+          data: { balance: { increment: -oldBalanceChange } },
+        });
+        await tx.account.update({
+          where: { id: data.accountId },
+          data: { balance: { increment: newBalanceChange } },
+        });
+      }
 
       return updated;
     });
@@ -221,7 +228,7 @@ export async function getUserTransactions(query = {}) {
       },
     });
 
-    return { success: true, data: transactions };
+    return { success: true, data: transactions.map(serializeAmount) };
   } catch (error) {
     throw new Error(error.message);
   }
