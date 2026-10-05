@@ -10,6 +10,11 @@ html {
   scroll-behavior: smooth;
 }
 
+html,
+body {
+  overflow-x: hidden;
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -80,7 +85,7 @@ html {
     @apply bg-gradient-to-br from-blue-600 to-purple-600;
   }
   .gradient-title {
-    @apply gradient font-extrabold tracking-tighter pr-2 pb-2 text-transparent bg-clip-text;
+    @apply bg-gradient-to-r from-[#031130] via-[#185DF1] to-[#031130] font-extrabold tracking-tighter pr-2 pb-2 text-transparent bg-clip-text;
   }
 }
 
@@ -115,4 +120,39 @@ html {
 .animate-gradient {
   background-size: 200% 200%;
   animation: gradientMove 3s ease infinite;
+}
+
+.welth-avatar {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(
+    135deg,
+    #031130 0%,
+    #185DF1 55%,
+    #031130 100%
+  ) !important;
+}
+
+.welth-avatar::before {
+  content: "";
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: white;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.welth-avatar::after {
+  content: "";
+  position: absolute;
+  width: 22px;
+  height: 11px;
+  border-radius: 12px 12px 4px 4px;
+  background: white;
+  bottom: 7px;
+  left: 50%;
+  transform: translateX(-50%);
 }
